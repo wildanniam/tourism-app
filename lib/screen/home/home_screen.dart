@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:tourism_app/data/api/api_service.dart';
-import 'package:tourism_app/data/models/tourism.dart';
-import 'package:tourism_app/data/models/tourism_list_response.dart';
+import 'package:provider/provider.dart';
+import 'package:tourism_app/provider/home/tourism_list_provider.dart';
 import 'package:tourism_app/screen/home/tourism_card_widget.dart';
 import 'package:tourism_app/static/navigation_route.dart';
+import 'package:tourism_app/static/tourism_list_result_state.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -15,12 +15,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<TourismListResponse> _futureTourismListResponse;
+  // Karena ada perubahan FutureBuilder jadi ga dipake lagi
+  // late Future<TourismListResponse> _futureTourismListResponse;
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    _futureTourismListResponse = ApiServices().getTourismList();
+    // Karena ada perubahan FutureBuilder jadi ga dipake lagi
+    // _futureTourismListResponse = ApiServices().getTourismList();
+
+    Future.microtask(() {
+      context.read<TourismListProvider>().fetchToursimList();
+    });
   }
 
   @override
@@ -29,27 +35,16 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text("Tourism List"),
       ),
-      body: FutureBuilder(
-        future: _futureTourismListResponse,
-        builder: (context, snapshot) {
-          // membuat icon loading ketika con == waiting
-          switch (snapshot.connectionState) {
-            case ConnectionState.waiting:
-              return const Center(
+      body: Consumer<TourismListProvider>(
+        builder: (context, value, child) {
+          return switch (value.resultState) {
+            TourismListLoadingState() => const Center(
                 child: CircularProgressIndicator(),
-              );
-            case ConnectionState.done:
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text(snapshot.error.toString()),
-                );
-              }
-
-              final listOfTourism = snapshot.data!.places;
-              return ListView.builder(
-                itemCount: listOfTourism.length,
+              ),
+            TourismListLoadedState(data: var tourismList) => ListView.builder(
+                itemCount: tourismList.length,
                 itemBuilder: (context, index) {
-                  final tourism = listOfTourism[index];
+                  final tourism = tourismList[index];
 
                   return TourismCard(
                     tourism: tourism,
@@ -62,10 +57,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   );
                 },
-              );
-            default:
-              return const SizedBox();
-          }
+              ),
+            TourismListErrorState(error: var message) => Center(
+                child: Text(message),
+              ),
+            _ => const SizedBox(),
+          };
         },
       ),
     );
